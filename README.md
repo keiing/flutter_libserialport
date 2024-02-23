@@ -16,3 +16,7 @@ Supported platforms:
 To use this package, add `flutter_libserialport` as a [dependency in your pubspec.yaml file](https://dart.dev/tools/pub/dependencies).
 
 ![screenshot](https://raw.githubusercontent.com/jpnurmi/flutter_libserialport/main/doc/images/flutter_libserialport.png)
+
+在示例中添加 完成与通讯城 通讯
+使用 flutter_libserialport 库 与 窗口通讯城完成通讯
+windows 已测试成功！ 2024/02/23
