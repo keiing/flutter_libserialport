@@ -20,3 +20,6 @@ To use this package, add `flutter_libserialport` as a [dependency in your pubspe
 在示例中添加 完成与通讯城 通讯
 使用 flutter_libserialport 库 与 窗口通讯城完成通讯
 windows 已测试成功！ 2024/02/23
+
+
+ascii码编码表前 后字符代表 [https://www.kmw.com/news/6872705.html]
