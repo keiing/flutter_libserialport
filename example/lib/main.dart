@@ -309,6 +309,7 @@ class _ExampleAppState extends State<ExampleApp> {
   }
 
   void initPorts() {
+    /// 获取 串口 列表
     setState(
       () => availablePorts = SerialPort.availablePorts,
     );
@@ -327,35 +328,56 @@ class _ExampleAppState extends State<ExampleApp> {
     _readData();
   }
 
-  void listen(SerialPort port) {
+  void listen(SerialPort port) async {
     if (reader != null) {
       close();
     }
 
-    // port.config.baudRate = 115200;
+    await Future.delayed(
+      Duration(seconds: 1),
+      () {
+        // port.config.baudRate = 115200;
 
-    port.openRead();
+        final value = port.openRead();
+        if (!value) {
+          setState(() {
+            text2 = "connect...open... $value";
+          });
+          return;
+        }
 
-    reader = SerialPortReader(
-      port,
-    );
+        reader = SerialPortReader(
+          port,
+        );
 
-    reader!.stream.listen(
-      (list) {
-        operationalGoodsUnit.add(
-          list.toList(),
+        reader!.stream.listen(
+          (list) {
+            operationalGoodsUnit.add(
+              list.toList(),
+            );
+          },
         );
       },
     );
   }
 
   void close() {
-    reader?.port.dispose();
+    /// 关闭
+    reader?.port.close();
     reader?.close();
 
     /// 取消订阅
-    subscription?.cancel();
     reader = null;
+  }
+
+  @override
+  void dispose() {
+    /// 释放
+    reader?.port.dispose();
+    reader?.close();
+    subscription?.cancel();
+
+    super.dispose();
   }
 
   @override
@@ -378,19 +400,27 @@ class _ExampleAppState extends State<ExampleApp> {
                 Builder(builder: (context) {
                   final port = SerialPort(address);
                   // port.openRead();
+
+                  return TextButton(
+                    onPressed: () {
+                      listen(port);
+                    },
+                    child: Text(address),
+                  );
+
                   return ExpansionTile(
                     title: Text(address),
                     children: [
                       CardListTile('Description', port.description),
-                      CardListTile('Transport', port.transport.toTransport()),
-                      CardListTile('USB Bus', port.busNumber?.toPadded()),
-                      CardListTile('USB Device', port.deviceNumber?.toPadded()),
-                      CardListTile('Vendor ID', port.vendorId?.toHex()),
-                      CardListTile('Product ID', port.productId?.toHex()),
-                      CardListTile('Manufacturer', port.manufacturer),
-                      CardListTile('Product Name', port.productName),
-                      CardListTile('Serial Number', port.serialNumber),
-                      CardListTile('MAC Address', port.macAddress),
+                      // CardListTile('Transport', port.transport.toTransport()),
+                      // CardListTile('USB Bus', port.busNumber?.toPadded()),
+                      // CardListTile('USB Device', port.deviceNumber?.toPadded()),
+                      // CardListTile('Vendor ID', port.vendorId?.toHex()),
+                      // CardListTile('Product ID', port.productId?.toHex()),
+                      // CardListTile('Manufacturer', port.manufacturer),
+                      // CardListTile('Product Name', port.productName),
+                      // CardListTile('Serial Number', port.serialNumber),
+                      // CardListTile('MAC Address', port.macAddress),
                       TextButton(
                         onPressed: () {
                           listen(port);

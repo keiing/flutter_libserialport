@@ -21,5 +21,6 @@ To use this package, add `flutter_libserialport` as a [dependency in your pubspe
 使用 flutter_libserialport 库 与 窗口通讯城完成通讯
 windows 已测试成功！ 2024/02/23
 
+android 已测试成功 2024/3/26
 
 ascii码编码表前 后字符代表 [https://www.kmw.com/news/6872705.html]
