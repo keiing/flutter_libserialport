@@ -277,10 +277,9 @@ class _ExampleAppState extends State<ExampleApp> {
 
   void close() {
     try {
+      port?.close();
       port?.dispose();
-
       /// 关闭
-      reader?.port.close();
       reader?.close();
 
       /// 取消订阅
@@ -292,11 +291,10 @@ class _ExampleAppState extends State<ExampleApp> {
 
   @override
   void dispose() {
-    /// 销毁
-    reader?.port.dispose();
+    /// 关闭通讯秤
+    close();
 
-    /// 关闭
-    reader?.close();
+    /// 取消订阅者
     subscription?.cancel();
 
     super.dispose();
