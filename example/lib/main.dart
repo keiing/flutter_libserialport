@@ -1,168 +1,18 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_libserialport/flutter_libserialport.dart';
+
+import 'operational_unit.dart';
 
 void main() => runApp(ExampleApp());
 
 class ExampleApp extends StatefulWidget {
   @override
   _ExampleAppState createState() => _ExampleAppState();
-}
-
-class OperationalGoodsUnit {
-  final List<int> fristTargetData = [
-    1,
-    2,
-  ];
-
-  final List<int> lastTargetData = [
-    3,
-    4,
-    // 0,
-  ];
-
-  static double weight = 0.00;
-
-  static final StreamController<double> subscriber =
-      StreamController<double>.broadcast();
-
-  /// 发布消息
-  static void publish(
-    double weight,
-  ) {
-    /// 数据发生变化
-    subscriber.sink.add(
-      weight,
-    );
-  }
-
-  /// 关闭发布者
-  static void close() {
-    subscriber.close();
-  }
-
-  final List<int> data = [];
-
-  List<int> extractedData = [];
-
-  bool isFind() {
-    if (data.length > fristTargetData.length + lastTargetData.length) {
-      return true;
-    }
-    return false;
-  }
-
-  /// 获取到传输内容
-  bool findData() {
-    int startIndex = -1;
-    int lastIndex = -1;
-
-    /// 获取起始坐标
-    for (int i = 0; i < data.length - fristTargetData.length + 1; i++) {
-      if (data[i] == fristTargetData[0] && data[i + 1] == fristTargetData[1]) {
-        startIndex = i;
-        break;
-      }
-    }
-    if (startIndex != -1) {
-      /// 获取结束坐标
-      for (int i = startIndex;
-          i < data.length - lastTargetData.length + 1;
-          i++) {
-        if (data[i] == lastTargetData[0] && data[i + 1] == lastTargetData[1]) {
-          lastIndex = i;
-          break;
-        }
-      }
-    }
-
-    if (startIndex != -1 && lastIndex != -1) {
-      extractedData = data.sublist(
-        startIndex + 2,
-        lastIndex,
-      );
-      return true;
-    }
-    return false;
-  }
-
-  /// 添加数据
-  add(List<int> list) {
-    data.addAll(
-      list,
-    );
-    find();
-  }
-
-  /// 主动进行查询一次
-  find() {
-    if (isFind()) {
-      /// 为true
-      if (findData()) {
-        /// 清空数据
-        clear();
-        publish(getWeight());
-      }
-    }
-  }
-
-  /// 清空数据
-  clear() {
-    data.clear();
-  }
-
-  String? getValue() {
-    if (extractedData.isNotEmpty) {
-      final text = String.fromCharCodes(
-        extractedData,
-      );
-      RegExp regExp = RegExp(r'(\d+\.\d+)');
-      RegExpMatch? match = regExp.firstMatch(text);
-      if (match != null) {
-        String extractedData = match.group(0).toString();
-        return extractedData;
-      }
-      return null;
-    }
-    return null;
-  }
-
-  /// 返回重量
-  ///
-  /// 使用方法
-  ///```dart
-  ///
-  /// reader!.stream.listen(
-  ///    (list) {
-  ///      operationalGoodsUnit.add(
-  ///        list.toList(),
-  ///      );
-  ///      final widget = operationalGoodsUnit.getWeight().toString();
-  ///      if (text != widget) {
-  ///        setState(
-  ///          () {
-  ///            text = widget;
-  ///          },
-  ///        );
-  ///      }
-  ///      ;
-  ///    },
-  ///  );
-  ///```
-  double getWeight() {
-    try {
-      final value = getValue();
-      return weight = double.parse(
-        value.toString(),
-      );
-    } catch (err) {
-      weight = 0.00;
-    }
-    return weight;
-  }
 }
 
 extension IntToString on int {
@@ -183,18 +33,24 @@ extension IntToString on int {
 }
 
 class _ExampleAppState extends State<ExampleApp> {
-  var availablePorts = [];
+  List<String> availablePorts = [];
   SerialPortReader? reader;
+  SerialPort? port;
+
   String text = "";
   String text2 = "";
 
   OperationalGoodsUnit operationalGoodsUnit = OperationalGoodsUnit();
 
+  /// 订阅者
   StreamSubscription<double>? subscription;
-  late SerialPort port;
 
   int readTime = 0;
   int sendTimeout = 0;
+
+  final TextEditingController controller = TextEditingController(
+    text: "115200",
+  );
 
   @override
   void initState() {
@@ -238,7 +94,7 @@ class _ExampleAppState extends State<ExampleApp> {
       print('发送数据$sendData');
       print('发送数据${dataList.toString()}');
       var bytes = Uint8List.fromList(dataList);
-      port.write(bytes);
+      port!.write(bytes);
       sendTimeout = DateTime.now().millisecondsSinceEpoch;
     }
   }
@@ -246,11 +102,11 @@ class _ExampleAppState extends State<ExampleApp> {
   void _readData() async {
     // 读数据
     final reader = SerialPortReader(
-      port,
+      port!,
       timeout: 10,
     );
     List<String> list = [];
-    if (!port.openReadWrite()) {
+    if (!port!.openReadWrite()) {
       print(SerialPort.lastError);
       return;
     }
@@ -311,7 +167,11 @@ class _ExampleAppState extends State<ExampleApp> {
   void initPorts() {
     /// 获取 串口 列表
     setState(
-      () => availablePorts = SerialPort.availablePorts,
+      () {
+        text = "";
+        text2 = "";
+        availablePorts = SerialPort.availablePorts;
+      },
     );
 
     // serialPortData(
@@ -321,59 +181,121 @@ class _ExampleAppState extends State<ExampleApp> {
 
   serialPortData(name) {
     port = SerialPort(name);
-    port.config.baudRate = 115200;
-    port.config.stopBits = 2;
-    port.config.bits = 8;
-    port.config.parity = 0;
+
+    // baudRates = [
+    //   9600,
+    //   19200,
+    //   115200,
+    // ]
+    /// 波特率。波特率是串行通信中每秒传输的符号数，用于控制数据传输的速度。
+    port!.config.baudRate = 9600;
+
+    /// 数据位。数据位表示每个字符中用于表示信息的位数
+    port!.config.bits = 8;
+
+    /// 校验位。校验位用于检测数据在传输过程中是否发生错误。
+    // port!.config.parity = 0;
+
+    /// 停止位。停止位用于标记字符的结束。
+    // port!.config.stopBits = 2;
     _readData();
   }
 
-  void listen(SerialPort port) async {
+  void listen(String address) async {
+    setState(() {
+      text2 = "初始化中...1";
+    });
+
     if (reader != null) {
       close();
     }
+    setState(() {
+      text2 = "初始化中...2";
+    });
+    try {
+      port = SerialPort(address);
 
-    await Future.delayed(
-      Duration(seconds: 1),
-      () {
-        // port.config.baudRate = 115200;
+      if (Platform.isWindows) {
+        port!.config.baudRate = int.parse(controller.text);
+        // port!.config.stopBits = 2;
+        // port!.config.bits = 8;
+        // port!.config.parity = 0;
+      }
 
-        final value = port.openRead();
-        if (!value) {
-          setState(() {
-            text2 = "connect...open... $value";
-          });
-          return;
-        }
+      await Future.delayed(
+        Duration(
+          milliseconds: 100,
+        ),
+        () {
+          try {
+            setState(() {
+              text2 = "初始化成功 等待连接中...";
+            });
 
-        reader = SerialPortReader(
-          port,
-        );
+            /// 只读
+            final value = port!.openRead();
 
-        reader!.stream.listen(
-          (list) {
-            operationalGoodsUnit.add(
-              list.toList(),
+            if (!value) {
+              setState(() {
+                text2 = "连接失败$value";
+              });
+              return;
+            }
+
+            setState(() {
+              text2 = "连接成功";
+            });
+
+            reader = SerialPortReader(
+              port!,
             );
-          },
-        );
-      },
-    );
+
+            setState(() {
+              text2 = "连接成功...reader?.port == port:${reader?.port == port}";
+            });
+
+            reader!.stream.listen(
+              (list) {
+                operationalGoodsUnit.add(
+                  list.toList(),
+                );
+              },
+            );
+          } catch (err) {
+            setState(() {
+              text2 = "连接异常 $err";
+            });
+          }
+        },
+      );
+    } catch (err) {
+      setState(() {
+        text2 = "初始化异常 $err";
+      });
+    }
   }
 
   void close() {
-    /// 关闭
-    reader?.port.close();
-    reader?.close();
+    try {
+      port?.dispose();
 
-    /// 取消订阅
-    reader = null;
+      /// 关闭
+      reader?.port.close();
+      reader?.close();
+
+      /// 取消订阅
+      reader = null;
+    } catch (err) {
+      print('关闭异常');
+    }
   }
 
   @override
   void dispose() {
-    /// 释放
+    /// 销毁
     reader?.port.dispose();
+
+    /// 关闭
     reader?.close();
     subscription?.cancel();
 
@@ -390,6 +312,9 @@ class _ExampleAppState extends State<ExampleApp> {
         body: Scrollbar(
           child: ListView(
             children: [
+              TextField(
+                controller: controller,
+              ),
               Text(
                 text,
               ),
@@ -398,37 +323,36 @@ class _ExampleAppState extends State<ExampleApp> {
               ),
               for (final address in availablePorts)
                 Builder(builder: (context) {
-                  final port = SerialPort(address);
                   // port.openRead();
 
                   return TextButton(
                     onPressed: () {
-                      listen(port);
+                      listen(address);
                     },
                     child: Text(address),
                   );
 
-                  return ExpansionTile(
-                    title: Text(address),
-                    children: [
-                      CardListTile('Description', port.description),
-                      // CardListTile('Transport', port.transport.toTransport()),
-                      // CardListTile('USB Bus', port.busNumber?.toPadded()),
-                      // CardListTile('USB Device', port.deviceNumber?.toPadded()),
-                      // CardListTile('Vendor ID', port.vendorId?.toHex()),
-                      // CardListTile('Product ID', port.productId?.toHex()),
-                      // CardListTile('Manufacturer', port.manufacturer),
-                      // CardListTile('Product Name', port.productName),
-                      // CardListTile('Serial Number', port.serialNumber),
-                      // CardListTile('MAC Address', port.macAddress),
-                      TextButton(
-                        onPressed: () {
-                          listen(port);
-                        },
-                        child: Text('open'),
-                      )
-                    ],
-                  );
+                  // return ExpansionTile(
+                  //   title: Text(address),
+                  //   children: [
+                  //     CardListTile('Description', port.description),
+                  //     // CardListTile('Transport', port.transport.toTransport()),
+                  //     // CardListTile('USB Bus', port.busNumber?.toPadded()),
+                  //     // CardListTile('USB Device', port.deviceNumber?.toPadded()),
+                  //     // CardListTile('Vendor ID', port.vendorId?.toHex()),
+                  //     // CardListTile('Product ID', port.productId?.toHex()),
+                  //     // CardListTile('Manufacturer', port.manufacturer),
+                  //     // CardListTile('Product Name', port.productName),
+                  //     // CardListTile('Serial Number', port.serialNumber),
+                  //     // CardListTile('MAC Address', port.macAddress),
+                  //     TextButton(
+                  //       onPressed: () {
+                  //         listen(port);
+                  //       },
+                  //       child: Text('open'),
+                  //     )
+                  //   ],
+                  // );
                 }),
             ],
           ),

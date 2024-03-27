@@ -121,17 +121,30 @@ class OperationalGoodsUnit {
     data.clear();
   }
 
+  final regExp = RegExp(r'(-?\d+\.\d+)');
+
   String? getValue() {
     if (extractedData.isNotEmpty) {
       final text = String.fromCharCodes(
         extractedData,
       );
-      RegExp regExp = RegExp(r'(\d+\.\d+)');
+
+      /// 负数
+      // if (text.indexOf('-') != -1) {
+      //   /// -0.12
+      //   /// -11.23
+      //   return text.substring(text.indexOf('-'), 7);
+      // } else {
+      //   /// 11.23
+      //   return text.substring(text.indexOf('.') - 2, 6);
+      // }
+      
       RegExpMatch? match = regExp.firstMatch(text);
       if (match != null) {
         String extractedData = match.group(0).toString();
         return extractedData;
       }
+
       return null;
     }
     return null;
