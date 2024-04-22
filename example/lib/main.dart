@@ -34,8 +34,8 @@ extension IntToString on int {
 
 class _ExampleAppState extends State<ExampleApp> {
   List<String> availablePorts = [];
-  SerialPortReader? reader;
-  SerialPort? port;
+  // SerialPortReader? reader;
+  // SerialPort? port;
 
   String text = "";
   String text2 = "";
@@ -201,7 +201,106 @@ class _ExampleAppState extends State<ExampleApp> {
     _readData();
   }
 
+  /// 是否开启已经通讯称
+  bool isOpen = false;
+
+  /// 未进行初始化
+  int status = 0;
+
+  /// 串口
+  SerialPortReader? reader;
+  SerialPort? port;
+
+  /// 连接通讯称
+  /// [address] 串口地址
+  /// [baudRate] 波特率
+  Future<void> connection({
+    required String address,
+    required int baudRate,
+  }) async {
+    if (reader != null || port != null) {
+      close();
+    }
+
+    try {
+      /// 启动初始化
+      status = 1;
+      port = SerialPort(address);
+
+      if (Platform.isWindows) {
+        port!.config.baudRate = baudRate;
+        // port!.config.stopBits = 2;
+        // port!.config.bits = 8;
+        // port!.config.parity = 0;
+      }
+
+      /// 初始化成功
+      status = 2;
+
+      return Future.delayed(
+        const Duration(
+          milliseconds: 100,
+        ),
+        () {
+          /// 尝试读取
+          status = 3;
+
+          /// 只读
+          final value = port!.openRead();
+
+          /// 读取失败
+          if (!value) {
+            throw Error.safeToString("打开失败");
+          }
+
+          /// 尝试连接
+          status = 4;
+
+          reader = SerialPortReader(
+            port!,
+          );
+
+          /// 连接成功
+          status = 5;
+
+          /// 尝试监听
+          reader!.stream.listen(
+            (list) {
+              /// 通知栈发生变化
+              operationalGoodsUnit.add(
+                list.toList(),
+              );
+            },
+          );
+
+          /// 监听成功
+          status = 6;
+          isOpen = true;
+        },
+      ).catchError((err) {
+        close();
+
+        /// 打开失败
+        status = 10;
+      });
+    } catch (err) {
+      close();
+
+      /// 初始化失败
+      status = 11;
+    }
+  }
+
   void listen(String address) async {
+    await connection(
+      address: address,
+      baudRate: 9200,
+    );
+    setState(() {
+      text2 = "初始化中...$status";
+    });
+
+    return;
     setState(() {
       text2 = "初始化中...1";
     });
@@ -279,6 +378,7 @@ class _ExampleAppState extends State<ExampleApp> {
     try {
       port?.close();
       port?.dispose();
+
       /// 关闭
       reader?.close();
 
@@ -321,36 +421,12 @@ class _ExampleAppState extends State<ExampleApp> {
               ),
               for (final address in availablePorts)
                 Builder(builder: (context) {
-                  // port.openRead();
-
                   return TextButton(
                     onPressed: () {
                       listen(address);
                     },
                     child: Text(address),
                   );
-
-                  // return ExpansionTile(
-                  //   title: Text(address),
-                  //   children: [
-                  //     CardListTile('Description', port.description),
-                  //     // CardListTile('Transport', port.transport.toTransport()),
-                  //     // CardListTile('USB Bus', port.busNumber?.toPadded()),
-                  //     // CardListTile('USB Device', port.deviceNumber?.toPadded()),
-                  //     // CardListTile('Vendor ID', port.vendorId?.toHex()),
-                  //     // CardListTile('Product ID', port.productId?.toHex()),
-                  //     // CardListTile('Manufacturer', port.manufacturer),
-                  //     // CardListTile('Product Name', port.productName),
-                  //     // CardListTile('Serial Number', port.serialNumber),
-                  //     // CardListTile('MAC Address', port.macAddress),
-                  //     TextButton(
-                  //       onPressed: () {
-                  //         listen(port);
-                  //       },
-                  //       child: Text('open'),
-                  //     )
-                  //   ],
-                  // );
                 }),
             ],
           ),
@@ -359,23 +435,6 @@ class _ExampleAppState extends State<ExampleApp> {
           child: Icon(Icons.refresh),
           onPressed: initPorts,
         ),
-      ),
-    );
-  }
-}
-
-class CardListTile extends StatelessWidget {
-  final String name;
-  final String? value;
-
-  CardListTile(this.name, this.value);
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        title: Text(value ?? 'N/A'),
-        subtitle: Text(name),
       ),
     );
   }
