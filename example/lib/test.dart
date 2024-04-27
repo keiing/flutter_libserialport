@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'operational_unit.dart';
 
-// import 'package:flutter_libserialport_example/main.dart';
-
-void main() {
+test1() {
+  /// 规则1
   final data = [
     1,
     2,
@@ -99,38 +99,8 @@ void main() {
   );
   String chineseString = utf8.decode(bytes);
   print(chineseString);
+}
 
-  /// 3, 4, 16 意味结束
-  // final list = [48, 48, 107, 103, 97, 3, 4, 16];
-  // print(
-  //   // 00kga
-  //   String.fromCharCodes(
-  //     Uint8List.fromList(
-  //       list,
-  //     ).sublist(
-  //       0,
-  //       list.length - 3,
-  //     ),
-  //   ),
-  // );
-
-  // print(
-  //   // 00kga
-  //   convert.latin1.decode(
-  //     Uint8List.fromList(
-  //       [48, 48, 107, 103, 97, 3, 4, 16],
-  //     ).buffer.asUint8List(
-  //           5,
-  //           3,
-  //         ),
-  //   ),
-  // ); // "123"
-
-  // print(
-  //   convert.ascii.decode(
-  //     Uint8List.fromList(
-  //       [48, 48, 107, 103, 97, 3, 4, 16],
-  //     ),
-  //   ),
-  // );
+void main() {
+  print(test1());
 }

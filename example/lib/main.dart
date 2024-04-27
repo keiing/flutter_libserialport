@@ -36,7 +36,8 @@ class _ExampleAppState extends State<ExampleApp> {
   List<String> availablePorts = [];
   // SerialPortReader? reader;
   // SerialPort? port;
-
+  late File file;
+  List textList = [];
   String text = "";
   String text2 = "";
 
@@ -52,10 +53,20 @@ class _ExampleAppState extends State<ExampleApp> {
     text: "115200",
   );
 
+  /// 停止位列表
+  final List<String> stopBitsList = ["0", "1", "2"];
+  String stopBit = "1";
+
+  /// 校验位
+  final List<String> parityList = ["0", "1", "2"];
+  String parity = "0";
+
   @override
   void initState() {
     super.initState();
     initPorts();
+
+    file = File("./list.txt");
 
     /// 订阅 发布者
     subscription = OperationalGoodsUnit.subscriber.stream.listen(
@@ -168,6 +179,7 @@ class _ExampleAppState extends State<ExampleApp> {
     /// 获取 串口 列表
     setState(
       () {
+        textList.clear();
         text = "";
         text2 = "";
         availablePorts = SerialPort.availablePorts;
@@ -229,9 +241,9 @@ class _ExampleAppState extends State<ExampleApp> {
 
       if (Platform.isWindows) {
         port!.config.baudRate = baudRate;
-        // port!.config.stopBits = 2;
-        // port!.config.bits = 8;
-        // port!.config.parity = 0;
+        port!.config.stopBits = int.parse(stopBit);
+        port!.config.bits = 8;
+        port!.config.parity = int.parse(parity);
       }
 
       /// 初始化成功
@@ -292,22 +304,19 @@ class _ExampleAppState extends State<ExampleApp> {
   }
 
   void listen(String address) async {
-    await connection(
-      address: address,
-      baudRate: 9200,
-    );
+    // await connection(
+    //   address: address,
+    //   baudRate: 9200,
+
+    // );
     setState(() {
       text2 = "初始化中...$status";
-    });
-
-    return;
-    setState(() {
-      text2 = "初始化中...1";
     });
 
     if (reader != null) {
       close();
     }
+
     setState(() {
       text2 = "初始化中...2";
     });
@@ -316,9 +325,9 @@ class _ExampleAppState extends State<ExampleApp> {
 
       if (Platform.isWindows) {
         port!.config.baudRate = int.parse(controller.text);
-        // port!.config.stopBits = 2;
-        // port!.config.bits = 8;
-        // port!.config.parity = 0;
+        port!.config.stopBits = int.parse(stopBit);
+        port!.config.bits = 8;
+        port!.config.parity = int.parse(parity);
       }
 
       await Future.delayed(
@@ -355,9 +364,12 @@ class _ExampleAppState extends State<ExampleApp> {
 
             reader!.stream.listen(
               (list) {
-                operationalGoodsUnit.add(
-                  list.toList(),
-                );
+                setState(() {
+                  textList.addAll(
+                    list,
+                  );
+                  text = "${list}";
+                });
               },
             );
           } catch (err) {
@@ -378,6 +390,9 @@ class _ExampleAppState extends State<ExampleApp> {
     try {
       port?.close();
       port?.dispose();
+
+      /// 释放 port 防止重复 dispose
+      port = null;
 
       /// 关闭
       reader?.close();
@@ -414,20 +429,73 @@ class _ExampleAppState extends State<ExampleApp> {
                 controller: controller,
               ),
               Text(
+                textList.toString(),
+              ),
+              Text(
                 text,
               ),
               Text(
                 text2,
               ),
               for (final address in availablePorts)
-                Builder(builder: (context) {
-                  return TextButton(
-                    onPressed: () {
-                      listen(address);
+                Builder(
+                  builder: (context) {
+                    return TextButton(
+                      onPressed: () {
+                        listen(address);
+                      },
+                      child: Text(address),
+                    );
+                  },
+                ),
+
+              /// 停止位
+              Text("停止位"),
+              DropdownButton<String>(
+                value: stopBit,
+                items: stopBitsList.map(
+                  (String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  },
+                ).toList(),
+                onChanged: (String? newValue) {
+                  setState(
+                    () {
+                      stopBit = newValue ?? "";
                     },
-                    child: Text(address),
                   );
-                }),
+                },
+              ),
+
+              Text("校验位"),
+              DropdownButton<String>(
+                value: parity,
+                items: parityList.map(
+                  (String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  },
+                ).toList(),
+                onChanged: (String? newValue) {
+                  setState(
+                    () {
+                      parity = newValue ?? "";
+                    },
+                  );
+                },
+              ),
+
+              TextButton(
+                onPressed: () {
+                  close();
+                },
+                child: Text("关闭"),
+              ),
             ],
           ),
         ),
