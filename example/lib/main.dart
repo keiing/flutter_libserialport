@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_libserialport/flutter_libserialport.dart';
 
+import 'custom_queue.dart';
 import 'operational_unit.dart';
 
 void main() => runApp(ExampleApp());
@@ -175,7 +177,7 @@ class _ExampleAppState extends State<ExampleApp> {
     //执行接下来的操作
   }
 
-  void initPorts() {
+  void initPorts() async {
     /// 获取 串口 列表
     setState(
       () {
@@ -186,6 +188,31 @@ class _ExampleAppState extends State<ExampleApp> {
       },
     );
 
+    for (var i = 0; i < 5; i++) {
+      customQueue.add<bool?>(
+        () async {
+          print(
+            "start${i}-1",
+          );
+          await Future.delayed(Duration(seconds: 2));
+          print(
+            "start${i}-2",
+          );
+          return false;
+        },
+      ).then(
+        (value) {
+          if (value == null) {
+            return false;
+          }
+          return value;
+        },
+      ).then((value) {
+        print(
+          "value:-----:$value",
+        );
+      });
+    }
     // serialPortData(
     //   "COM2",
     // );
@@ -231,7 +258,7 @@ class _ExampleAppState extends State<ExampleApp> {
     required int baudRate,
   }) async {
     if (reader != null || port != null) {
-      close();
+      await close();
     }
 
     try {
@@ -303,96 +330,115 @@ class _ExampleAppState extends State<ExampleApp> {
     }
   }
 
+  final CustomQueue customQueue = CustomQueue(
+    onlyLastTask: true,
+  );
+
   void listen(String address) async {
     // await connection(
     //   address: address,
     //   baudRate: 9200,
-
     // );
-    setState(() {
-      text2 = "初始化中...$status";
-    });
 
-    if (reader != null) {
-      close();
-    }
+    customQueue.add(() async {
+      setState(() {
+        text2 = "初始化中...$status";
+      });
 
-    setState(() {
-      text2 = "初始化中...2";
-    });
-    try {
-      port = SerialPort(address);
-
-      if (Platform.isWindows) {
-        port!.config.baudRate = int.parse(controller.text);
-        port!.config.stopBits = int.parse(stopBit);
-        port!.config.bits = 8;
-        port!.config.parity = int.parse(parity);
+      if (reader != null || port != null) {
+        close();
+        await Future.delayed(
+          Duration(
+            seconds: 1,
+          ),
+        );
       }
 
-      await Future.delayed(
-        Duration(
-          milliseconds: 100,
-        ),
-        () {
-          try {
-            setState(() {
-              text2 = "初始化成功 等待连接中...";
-            });
-
-            /// 只读
-            final value = port!.openRead();
-
-            if (!value) {
-              setState(() {
-                text2 = "连接失败$value";
-              });
-              return;
-            }
-
-            setState(() {
-              text2 = "连接成功";
-            });
-
-            reader = SerialPortReader(
-              port!,
-            );
-
-            setState(() {
-              text2 = "连接成功...reader?.port == port:${reader?.port == port}";
-            });
-
-            reader!.stream.listen(
-              (list) {
-                setState(() {
-                  textList.addAll(
-                    list,
-                  );
-                  text = "${list}";
-                });
-              },
-            );
-          } catch (err) {
-            setState(() {
-              text2 = "连接异常 $err";
-            });
-          }
-        },
-      );
-    } catch (err) {
       setState(() {
-        text2 = "初始化异常 $err";
+        text2 = "初始化中...2";
       });
-    }
+      try {
+        port = SerialPort(address);
+
+        if (Platform.isWindows) {
+          port!.config.baudRate = int.parse(controller.text);
+          port!.config.stopBits = int.parse(stopBit);
+          port!.config.bits = 8;
+          port!.config.parity = int.parse(parity);
+        }
+
+        await Future.delayed(
+          Duration(
+            milliseconds: 100,
+          ),
+          () {
+            try {
+              setState(() {
+                text2 = "初始化成功 等待连接中...";
+              });
+
+              /// 只读
+              final value = port!.openRead();
+
+              if (!value) {
+                setState(() {
+                  text2 = "连接失败$value";
+                });
+                return;
+              }
+
+              setState(() {
+                text2 = "连接成功";
+              });
+
+              reader = SerialPortReader(
+                port!,
+              );
+
+              setState(() {
+                text2 = "连接成功...reader?.port == port:${reader?.port == port}";
+              });
+
+              reader!.stream.listen(
+                (list) {
+                  setState(() {
+                    textList.addAll(
+                      list,
+                    );
+                    text = "${list}";
+                  });
+                },
+              );
+            } catch (err) {
+              setState(() {
+                text2 = "连接异常 $err";
+              });
+            }
+          },
+        );
+      } catch (err) {
+        setState(() {
+          text2 = "初始化异常 $err";
+        });
+      }
+      return null;
+    });
   }
 
-  void close() {
+  Future<void> close() async {
     try {
-      port?.close();
-      port?.dispose();
+      port
+        ?..close()
+        ..dispose();
 
       /// 释放 port 防止重复 dispose
       port = null;
+
+      if (reader?.port.isOpen == true) {
+        reader!.port
+          ..close()
+          ..dispose();
+      }
 
       /// 关闭
       reader?.close();
