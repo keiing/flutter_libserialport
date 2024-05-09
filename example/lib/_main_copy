@@ -430,10 +430,14 @@ class _ExampleAppState extends State<ExampleApp> {
             },
           );
         } else if (Platform.isAndroid) {
-          /// android 设备没有那么多波特率相关信息
           port = SerialPort(
             address,
           );
+
+          port!.config
+            ..baudRate = int.parse(
+              controller.text,
+            );
 
           await Future.delayed(
             Duration(

@@ -10,6 +10,8 @@ dependencies:
     sdk: flutter
   flutter_libserialport:
     path: ../
+  serial_port_win32: ^1.3.0
+  win32: ^5.5.0
 
 flutter:
   uses-material-design: true
